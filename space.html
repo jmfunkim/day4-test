@@ -11,11 +11,14 @@
   #ui button { background: rgba(20,30,60,.6); color: #cfe3ff; border: 1px solid #4a6fa5; border-radius: 6px;
     padding: 8px 14px; cursor: pointer; backdrop-filter: blur(4px); font-size: 14px; }
   #ui button.on { background: #2a5bd7; color: #fff; }
+  #home { position: fixed; right: 16px; bottom: 16px; background: rgba(20,30,60,.6); color: #cfe3ff; border: 1px solid #4a6fa5;
+    border-radius: 6px; padding: 8px 14px; font-size: 14px; text-decoration: none; backdrop-filter: blur(4px); }
   #title { position: fixed; top: 16px; left: 16px; color: #cfe3ff; font-size: 14px; opacity: .8; pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="title">SPACE VOYAGE · 드래그: 회전 / 휠: 확대 / 1·2·3: 카메라</div>
+<a id="home" href="index.html">← 처음으로</a>
 <div id="ui">
   <button data-m="free" class="on">1 자유 시점</button>
   <button data-m="chase">2 우주선 추적</button>
