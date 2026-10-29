@@ -34,6 +34,10 @@ export const POIS = [
   { id: 'hyeopjae', type: 'spot', emoji: '🏖️', name: '협재해변', deg: -170, f: 1, desc: '에메랄드빛 바다와 하얀 모래, 멀리 비양도가 보이는 서쪽 대표 해변.' },
   { id: 'udo', type: 'spot', emoji: '🐂', name: '우도', pos: polar(-12, 1.14), bump: { h: 0.45, sg: 0.4 }, desc: '소가 누운 모양의 섬. 땅콩 아이스크림과 자전거 일주로 유명해요.' },
 
+  { id: 'biyang', type: 'spot', emoji: '🏝️', name: '비양도', pos: polar(-160, 1.1), bump: { h: 0.45, sg: 0.22 }, desc: '협재해변 앞에 떠 있는 작은 화산섬. 천연기념물 비양봉이 있어요.' },
+  { id: 'chagwi', type: 'spot', emoji: '🎣', name: '차귀도', pos: polar(173, 1.1), bump: { h: 0.45, sg: 0.25 }, desc: '고산 앞바다의 무인도. 낚시와 일몰 명소로 유명해요.' },
+  { id: 'gapa', type: 'spot', emoji: '🌾', name: '가파도', pos: polar(113, 1.28), bump: { h: 0.55, sg: 0.32 }, desc: '봄이면 청보리가 물결치는 낮고 평평한 섬.' },
+
   // 오름
   { id: 'saebyeol', type: 'orom', emoji: '🔥', name: '새별오름', deg: -172, f: 0.62, bump: { h: 0.55, sg: 0.34 }, desc: '정월대보름 들불축제가 열리는 억새 명소. 해 질 녘 풍경이 특히 예뻐요.' },
   { id: 'geumo', type: 'orom', emoji: '💧', name: '금오름', deg: -163, f: 0.76, bump: { h: 0.5, sg: 0.3 }, desc: '정상 분화구에 물이 고여 있는 오름. 일몰 사진 명소예요.' },
@@ -50,7 +54,7 @@ export const POIS = [
   { id: 'dodu', type: 'light', emoji: '🗼', name: '도두 등대', deg: -104, f: 1, desc: '제주공항 근처 도두봉 아래 바닷가의 무지개 해안도로 옆 등대.' },
   { id: 'gosan', type: 'light', emoji: '🌠', name: '고산 등대', deg: 168, f: 1, desc: '서쪽 끝 수월봉 인근, 차귀도가 바라보이는 곳의 등대.' },
   { id: 'seongsan-lh', type: 'light', emoji: '🏮', name: '성산 등대', deg: -1, f: 1.0, desc: '성산일출봉 아래 바닷가에서 동쪽 바다를 밝히는 등대.' },
-  { id: 'mara', type: 'light', emoji: '🏝️', name: '마라도 등대', pos: polar(116, 1.46), bump: { h: 0.4, sg: 0.3 }, desc: '대한민국 최남단 섬 마라도의 등대. 짜장면 맛집으로도 유명해요.' },
+  { id: 'mara', type: 'light', emoji: '🏝️', name: '마라도 등대', pos: polar(116, 1.46), bump: { h: 0.75, sg: 0.3 }, desc: '대한민국 최남단 섬 마라도의 등대. 짜장면 맛집으로도 유명해요.' },
 
   // 돌하르방
   { id: 'hb-jeju', type: 'hareubang', emoji: '🗿', name: '제주시 돌하르방', deg: -90, f: 0.8, desc: '제주의 수호신. 큰 눈과 벙거지 모자, 배 위의 두 손이 특징이에요.' },
@@ -100,6 +104,27 @@ for (let i = 0; i < 26; i++) {
   BUMPS.push({ x, z, h: 0.18 + rng() * 0.25, sg: 0.22 + rng() * 0.14 })
 }
 
+// ---- 값 노이즈 (지형 질감 / 밭 무늬 / 숲 배치) ----
+function hash(ix, iz) {
+  let h = Math.imul(ix, 374761393) + Math.imul(iz, 668265263)
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+}
+export function noise2(x, z) {
+  const ix = Math.floor(x)
+  const iz = Math.floor(z)
+  const fx = x - ix
+  const fz = z - iz
+  const u = fx * fx * (3 - 2 * fx)
+  const v = fz * fz * (3 - 2 * fz)
+  const a = hash(ix, iz)
+  const b = hash(ix + 1, iz)
+  const c = hash(ix, iz + 1)
+  const d = hash(ix + 1, iz + 1)
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
+}
+const fbm = (x, z) => 0.5 * noise2(x, z) + 0.25 * noise2(x * 2.1, z * 2.1) + 0.125 * noise2(x * 4.3, z * 4.3) + 0.0625 * noise2(x * 8.7, z * 8.7)
+
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const smooth = (e0, e1, v) => {
   const t = clamp((v - e0) / (e1 - e0), 0, 1)
@@ -122,15 +147,42 @@ export function heightAt(x, z) {
     const q = (x - b.x) ** 2 + (z - b.z) ** 2
     if (q < 9) h += b.h * Math.exp(-q / (2 * b.sg * b.sg))
   }
+
+  // 울퉁불퉁한 질감 (해안선 근처는 0 으로 수렴)
+  const m = smooth(0.02, 0.2, land)
+  h += m * ((fbm(x * 1.3, z * 1.3) - 0.47) * 0.35 + (fbm(x * 5, z * 5) - 0.47) * 0.06)
   return h
 }
 
+const ORCHARD_CENTERS = POIS.filter((p) => p.type === 'orchard').map(poiPos)
+
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * clamp(t, 0, 1))
-export function colorAt(h) {
+function baseColor(h) {
   if (h < 0) return mix([0.7, 0.82, 0.78], [0.1, 0.35, 0.5], -h / 0.6) // 바다 밑
   if (h < 0.07) return [0.93, 0.87, 0.66] // 모래
   if (h < 0.7) return mix([0.42, 0.68, 0.28], [0.3, 0.56, 0.24], (h - 0.07) / 0.6)
   if (h < 1.9) return mix([0.3, 0.56, 0.24], [0.2, 0.4, 0.2], (h - 0.7) / 1.2)
   if (h < 2.7) return mix([0.2, 0.4, 0.2], [0.5, 0.44, 0.38], (h - 1.9) / 0.8)
   return mix([0.5, 0.44, 0.38], [0.88, 0.88, 0.86], (h - 2.7) / 0.7)
+}
+
+// slope: 경사도(가파를수록 바위색), x/z: 밭 무늬·노이즈용
+export function colorAt(h, x = 0, z = 0, slope = 0) {
+  let c = baseColor(h)
+  if (h < 0.07) return c
+
+  if (h < 0.65) {
+    // 저지대: 밭 조각보 무늬
+    const cell = hash(Math.floor(x * 4), Math.floor(z * 4))
+    if (cell > 0.6) c = mix(c, [0.72, 0.76, 0.32], 0.55)
+    else if (cell < 0.2) c = mix(c, [0.55, 0.42, 0.25], 0.35)
+    for (const o of ORCHARD_CENTERS) {
+      const d = Math.hypot((x - o.x) / 1.3, (z - o.z) / 0.9)
+      if (d < 1) c = mix(c, [0.85, 0.72, 0.22], 0.5 * (1 - d))
+    }
+  }
+  const n = 0.9 + 0.2 * noise2(x * 6, z * 6)
+  c = c.map((v) => v * n)
+  if (slope > 0.8 && h > 0.25) c = mix(c, [0.4, 0.36, 0.33], clamp((slope - 0.8) / 0.9, 0, 1))
+  return c
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { A, B, LAYERS, POIS, colorAt, heightAt, mulberry32, polar, poiPos } from '../lib/jejuData.js'
+import { A, B, LAYERS, POIS, colorAt, heightAt, mulberry32, noise2, polar, poiPos } from '../lib/jejuData.js'
 
 const COLOR = Object.fromEntries(LAYERS.map((l) => [l.key, l.color]))
 const PIN_Y = { spot: 0.55, orom: 0.6, wind: 1.7, light: 1.05, hareubang: 0.9, olle: 0.4, port: 0.55, orchard: 0.6 }
@@ -186,14 +186,18 @@ export default function JejuMap3D({ visible, selectedId, onSelect }) {
     // 지형
     const W = 36
     const D = 18
-    const geo = new THREE.PlaneGeometry(W, D, 260, 130)
+    const geo = new THREE.PlaneGeometry(W, D, 400, 200)
     geo.rotateX(-Math.PI / 2)
     const pos = geo.attributes.position
     const cols = new Float32Array(pos.count * 3)
+    const eps = 0.06
     for (let i = 0; i < pos.count; i++) {
-      const h = heightAt(pos.getX(i), pos.getZ(i))
+      const x = pos.getX(i)
+      const z = pos.getZ(i)
+      const h = heightAt(x, z)
       pos.setY(i, h)
-      const [r, g, b] = colorAt(h)
+      const slope = h > 0.2 ? Math.hypot(heightAt(x + eps, z) - h, heightAt(x, z + eps) - h) / eps : 0
+      const [r, g, b] = colorAt(h, x, z, slope)
       cols.set([r, g, b], i * 3)
     }
     geo.setAttribute('color', new THREE.BufferAttribute(cols, 3))
@@ -201,12 +205,13 @@ export default function JejuMap3D({ visible, selectedId, onSelect }) {
     scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })))
 
     const sea = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, D),
+      new THREE.PlaneGeometry(W, D, 120, 60),
       new THREE.MeshPhongMaterial({ color: 0x2a93c2, transparent: true, opacity: 0.72, shininess: 90, specular: 0x99ccee }),
     )
     sea.rotation.x = -Math.PI / 2
     sea.position.y = 0.004
     scene.add(sea)
+    const seaPos = sea.geometry.attributes.position
 
     // 레이어 그룹
     const groups = {}
@@ -281,6 +286,110 @@ export default function JejuMap3D({ visible, selectedId, onSelect }) {
       markers.push(head)
       markerOf[p.id] = { pin, baseY, head, target: new THREE.Vector3(x, y + 0.3, z) }
     })
+
+    // ---- 디테일 장식 ----
+    // 도로: 일주도로 + 횡단도로
+    const road = (pts, closed, radius = 0.02) => {
+      const m = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), pts.length * 4, radius, 5, closed),
+        std(0xb9b6ae),
+      )
+      scene.add(m)
+    }
+    const ringRoad = []
+    for (let d = 0; d < 360; d += 4) {
+      const p = polar(d, 0.92)
+      ringRoad.push(new THREE.Vector3(p.x, Math.max(heightAt(p.x, p.z), 0.02) + 0.03, p.z))
+    }
+    road(ringRoad, true)
+    const crossA = polar(-90, 0.88)
+    const crossB = polar(90, 0.88)
+    const crossRoad = []
+    for (let t = 0; t <= 1.001; t += 0.04) {
+      const x = crossA.x + (crossB.x - crossA.x) * t - 2.6 * Math.sin(Math.PI * t)
+      const z = crossA.z + (crossB.z - crossA.z) * t
+      crossRoad.push(new THREE.Vector3(x, Math.max(heightAt(x, z), 0.02) + 0.03, z))
+    }
+    road(crossRoad, false, 0.018)
+
+    // 해안 포말
+    const foamPts = []
+    for (let d = 0; d < 360; d += 3) {
+      const p = polar(d, 1.005)
+      foamPts.push(new THREE.Vector3(p.x, 0.012, p.z))
+    }
+    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(foamPts, true), 500, 0.045, 4, true), foamMat))
+
+    // 한라산 중산간 숲 (침엽수)
+    const frng = mulberry32(77)
+    const trees = []
+    for (let i = 0; i < 6000 && trees.length < 1200; i++) {
+      const { x, z } = polar(frng() * 360 - 180, 0.1 + frng() * 0.85)
+      const h = heightAt(x, z)
+      if (h < 0.35 || h > 2.1 || noise2(x * 3, z * 3) < 0.45) continue
+      trees.push({ x, y: h, z, s: 0.7 + frng() * 0.8 })
+    }
+    const forest = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.22, 6), std(0x1f5d2c), trees.length)
+    const dummy = new THREE.Object3D()
+    trees.forEach((t, i) => {
+      dummy.position.set(t.x, t.y + 0.1 * t.s, t.z)
+      dummy.scale.setScalar(t.s)
+      dummy.updateMatrix()
+      forest.setMatrixAt(i, dummy.matrix)
+    })
+    scene.add(forest)
+
+    // 도시 (제주시, 서귀포시)
+    const town = (deg, f, count, name) => {
+      const c = polar(deg, f)
+      const trng = mulberry32(Math.floor(c.x * 31 + 5))
+      const palette = [0xf0e6d8, 0xd9e4ea, 0xf3d9c4, 0xe6e6e6]
+      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), std(0xffffff), count)
+      const colr = new THREE.Color()
+      for (let i = 0; i < count; i++) {
+        const x = c.x + (trng() - 0.5) * 1.8
+        const z = c.z + (trng() - 0.5) * 0.7
+        const h = Math.max(heightAt(x, z), 0.02)
+        const sy = 0.06 + trng() * 0.14
+        dummy.position.set(x, h + sy / 2, z)
+        dummy.scale.set(0.07 + trng() * 0.05, sy, 0.07 + trng() * 0.05)
+        dummy.updateMatrix()
+        mesh.setMatrixAt(i, dummy.matrix)
+        mesh.setColorAt(i, colr.setHex(palette[Math.floor(trng() * palette.length)]))
+      }
+      scene.add(mesh)
+      const label = makeLabel(`🏙️ ${name}`)
+      label.position.set(c.x, Math.max(heightAt(c.x, c.z), 0) + 0.85, c.z)
+      scene.add(label)
+    }
+    town(-90, 0.9, 110, '제주시')
+    town(90, 0.88, 70, '서귀포시')
+
+    // 구름
+    const clouds = []
+    const crng = mulberry32(9)
+    for (let i = 0; i < 8; i++) {
+      const c = new THREE.Group()
+      for (let k = 0; k < 4; k++) {
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(0.5 + crng() * 0.4, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.82, roughness: 1, depthWrite: false }),
+        )
+        puff.position.set(k * 0.6 - 0.9, crng() * 0.2, crng() * 0.4)
+        puff.scale.y = 0.55
+        c.add(puff)
+      }
+      c.position.set(crng() * 36 - 18, 6.5 + crng() * 2.5, crng() * 16 - 8)
+      c.userData.speed = 0.15 + crng() * 0.25
+      scene.add(c)
+      clouds.push(c)
+    }
+
+    // 방위표
+    const north = makeLabel('🧭 북 ↑')
+    north.position.set(-16, 0.5, -7.6)
+    scene.add(north)
 
     // 선택 링
     const ring = new THREE.Mesh(
@@ -375,6 +484,19 @@ export default function JejuMap3D({ visible, selectedId, onSelect }) {
         m.pin.scale.setScalar(sel ? 1.35 : 1)
       }
       ring.scale.setScalar(1 + Math.sin(s * 4) * 0.12)
+
+      // 바다 물결 / 포말 / 구름
+      for (let i = 0; i < seaPos.count; i++) {
+        const x = seaPos.getX(i)
+        const y = seaPos.getY(i)
+        seaPos.setZ(i, Math.sin(x * 1.4 + s * 1.3) * 0.012 + Math.cos(y * 1.8 + s * 1.1) * 0.01)
+      }
+      seaPos.needsUpdate = true
+      foamMat.opacity = 0.38 + Math.sin(s * 1.5) * 0.15
+      clouds.forEach((c) => {
+        c.position.x += c.userData.speed * 0.01
+        if (c.position.x > 20) c.position.x = -20
+      })
 
       if (tween) {
         const t = Math.min(1, (now - tween.t0) / tween.dur)
