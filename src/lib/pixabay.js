@@ -1,8 +1,8 @@
-const KEY = import.meta.env.VITE_PIXABAY_API_KEY
+const KEY = import.meta.env.PIXABAY_API_KEY || import.meta.env.VITE_PIXABAY_API_KEY
 
 // Pixabay 약관: 결과는 24시간 캐시 가능 -> sessionStorage 에 캐시
 export async function fetchJejuImages(query = 'jeju island', perPage = 24) {
-  if (!KEY) return { hits: [], error: 'VITE_PIXABAY_API_KEY 가 설정되지 않았습니다.' }
+  if (!KEY) return { hits: [], error: '이미지를 불러올 수 없습니다. (Pixabay API 키 미설정)' }
 
   const cacheKey = `pixabay:${query}:${perPage}`
   try {
