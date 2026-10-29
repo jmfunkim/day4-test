@@ -19,10 +19,14 @@
 <main>
   <h1>SPACE VOYAGE</h1>
   <p>우주선이 천체 사이를 지나가는 three.js 애니메이션</p>
-  <button id="start">우주 여행 시작</button>
+  <div style="display:flex;gap:16px">
+    <button id="start">우주 여행 시작</button>
+    <button id="jeju">제주도 보기</button>
+  </div>
 </main>
 <script>
   document.getElementById('start').onclick = () => { location.href = 'space.html'; };
+  document.getElementById('jeju').onclick = () => { location.href = 'jeju.html'; };
 </script>
 </body>
 </html>
