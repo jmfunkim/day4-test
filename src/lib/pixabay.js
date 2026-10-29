@@ -1,4 +1,4 @@
-const KEY = import.meta.env.PIXABAY_API_KEY || import.meta.env.VITE_PIXABAY_API_KEY
+const KEY = import.meta.env.PIXABAY_API_KEY
 
 // Pixabay 약관: 결과는 24시간 캐시 가능 -> sessionStorage 에 캐시
 export async function fetchJejuImages(query = 'jeju island', perPage = 24) {
