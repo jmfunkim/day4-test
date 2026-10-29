@@ -95,8 +95,20 @@ a { color: var(--sea); text-decoration: none; }
 .info dt { font-weight: 700; }
 .info dd { margin: 0; }
 .badge { background: var(--orange); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: .75rem; margin-left: 4px; }
-.product { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.08); display: flex; flex-direction: column; }
-.product-img { aspect-ratio: 4/3; background: linear-gradient(135deg, #cfe8ef, #e9f5f8) center/cover; }
+.product { position: relative; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.08); display: flex; flex-direction: column; transition: transform .25s, box-shadow .25s; }
+.product:hover { transform: translateY(-6px); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+.product-img { position: relative; aspect-ratio: 4/3; background: linear-gradient(135deg, #cfe8ef, #e9f5f8) center/cover; transition: background-size .3s; }
+.product-emoji { position: absolute; right: 10px; bottom: 10px; font-size: 1.6rem; background: rgba(255,255,255,.9); border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.ribbon { position: absolute; top: 12px; left: 0; z-index: 2; background: #e63946; color: #fff; font-size: .8rem; font-weight: 800; padding: 4px 12px 4px 10px; border-radius: 0 999px 999px 0; }
+.product-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.shop-hero { min-height: 44vh; }
+.hero-tags { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.hero-tags span { background: rgba(255,255,255,.2); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,.4); border-radius: 999px; padding: 4px 12px; font-size: .9rem; }
+.promos { max-width: 1100px; margin: -32px auto 0; padding: 0 16px; position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.promo { min-height: 130px; border-radius: 16px; color: #fff; padding: 16px; display: flex; flex-direction: column; justify-content: flex-end; background: linear-gradient(135deg, var(--sea), var(--sea-dark)) center/cover; box-shadow: 0 6px 20px rgba(0,0,0,.18); transition: transform .2s; }
+.promo:hover { transform: scale(1.03); }
+.promo-emoji { font-size: 1.8rem; }
+.section-title { text-align: center; margin: 8px 0 18px; }
 .product-body { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
 .product-body small { color: #567; }
 .price { font-weight: 800; color: var(--sea-dark); font-size: 1.1rem; }
