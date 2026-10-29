@@ -14,13 +14,13 @@ npm run dev
 
 | 이름 | 설명 |
 | --- | --- |
-| `VITE_SUPABASE_URL` | Supabase Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon (public) key |
-| `VITE_PIXABAY_API_KEY` | Pixabay API key |
+| `SUPABASE_URL` | Supabase Project URL |
+| `SUPABASE_ANON_KEY` | Supabase anon (public) key |
+| `PIXABAY_API_KEY` | Pixabay API key |
 
 ## Vercel 배포
 
-- Root Directory: `jeju-app`
+- Root Directory: 비워 둠 (프로젝트가 저장소 루트에 있음)
 - Framework Preset: Vite (Build `npm run build`, Output `dist`)
 - 위 환경변수 3개를 Project Settings > Environment Variables 에 등록
 - Supabase > Authentication > URL Configuration 에 배포 URL 등록
