@@ -1,14 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useCart } from '../context/CartContext.jsx'
 
 export default function Navbar() {
   const { user, signOut } = useAuth()
+  const { count } = useCart()
   const navigate = useNavigate()
 
   return (
     <nav className="nav">
       <Link to="/" className="logo">🍊 제주 이야기</Link>
       <div className="nav-right">
+        <Link to="/shop">🛍️ 샵</Link>
+        {user && <Link to="/cart">🛒 장바구니{count > 0 && <span className="badge">{count}</span>}</Link>}
         {user ? (
           <>
             <Link to="/account">🙋 내 정보</Link>

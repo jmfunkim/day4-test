@@ -6,6 +6,8 @@ import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
 import Account from './pages/Account.jsx'
+import Shop from './pages/Shop.jsx'
+import Cart from './pages/Cart.jsx'
 
 export default function App() {
   return (
@@ -18,6 +20,15 @@ export default function App() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/shop" element={<Shop />} />
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
