@@ -13,7 +13,7 @@ export default function App() {
       <Navbar />
       {!isSupabaseConfigured && (
         <div className="banner">
-          Supabase 설정이 되어 있지 않아 로그인 기능이 동작하지 않습니다.
+          ⚠️ Supabase 설정이 되어 있지 않아 로그인 기능이 동작하지 않습니다.
         </div>
       )}
       <Routes>
@@ -31,7 +31,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <footer className="footer">
-        사진 제공: <a href="https://pixabay.com" target="_blank" rel="noreferrer">Pixabay</a>
+        🌺 🍊 🌊 🌋 🗿 <br />📷 사진 제공: <a href="https://pixabay.com" target="_blank" rel="noreferrer">Pixabay</a>
       </footer>
     </>
   )

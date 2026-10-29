@@ -11,7 +11,7 @@ export default function Navbar() {
       <div className="nav-right">
         {user ? (
           <>
-            <Link to="/account">내 정보</Link>
+            <Link to="/account">🙋 내 정보</Link>
             <button
               className="btn ghost"
               onClick={async () => {
@@ -19,13 +19,13 @@ export default function Navbar() {
                 navigate('/')
               }}
             >
-              로그아웃
+              👋 로그아웃
             </button>
           </>
         ) : (
           <>
-            <Link to="/login">로그인</Link>
-            <Link to="/signup" className="btn">회원가입</Link>
+            <Link to="/login">🔑 로그인</Link>
+            <Link to="/signup" className="btn">📝 회원가입</Link>
           </>
         )}
       </div>

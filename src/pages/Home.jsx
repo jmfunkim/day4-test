@@ -4,12 +4,19 @@ import { fetchJejuImages } from '../lib/pixabay.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
 const TOPICS = [
-  { label: '전체', q: 'jeju island' },
-  { label: '바다', q: 'jeju sea' },
-  { label: '한라산', q: 'hallasan' },
-  { label: '유채꽃', q: 'jeju canola flower' },
-  { label: '감귤', q: 'jeju tangerine' },
-  { label: '돌하르방', q: 'dol hareubang' },
+  { label: '🏝️ 전체', q: 'jeju island' },
+  { label: '🌊 바다', q: 'jeju sea' },
+  { label: '🌋 한라산', q: 'hallasan' },
+  { label: '🌼 유채꽃', q: 'jeju canola flower' },
+  { label: '🍊 감귤', q: 'jeju tangerine' },
+  { label: '🗿 돌하르방', q: 'dol hareubang' },
+]
+
+const HIGHLIGHTS = [
+  { icon: '🌊', title: '푸른 바다', text: '에메랄드빛 해변과 파도' },
+  { icon: '🌋', title: '한라산', text: '사계절 다른 얼굴의 산' },
+  { icon: '🍊', title: '감귤', text: '새콤달콤 제주의 맛' },
+  { icon: '💨', title: '바람', text: '돌담 사이로 부는 바람' },
 ]
 
 export default function Home() {
@@ -40,9 +47,19 @@ export default function Home() {
         className="hero"
         style={hero ? { backgroundImage: `linear-gradient(rgba(0,30,50,.35), rgba(0,30,50,.55)), url(${hero.large})` } : undefined}
       >
-        <h1>제주, 바람과 바다의 섬</h1>
-        <p>한라산부터 푸른 바다, 돌담과 감귤밭까지 — 제주의 풍경을 만나보세요.</p>
-        {!user && <Link to="/signup" className="btn big">지금 가입하고 시작하기</Link>}
+        <h1>🏝️ 제주, 바람과 바다의 섬 🌊</h1>
+        <p>🌋 한라산부터 푸른 바다, 돌담과 🍊 감귤밭까지 — 제주의 풍경을 만나보세요.</p>
+        {!user && <Link to="/signup" className="btn big">✨ 지금 가입하고 시작하기</Link>}
+      </section>
+
+      <section className="highlights">
+        {HIGHLIGHTS.map((h) => (
+          <div key={h.title} className="hl">
+            <span className="hl-icon">{h.icon}</span>
+            <b>{h.title}</b>
+            <small>{h.text}</small>
+          </div>
+        ))}
       </section>
 
       <section className="gallery-wrap">
@@ -53,9 +70,9 @@ export default function Home() {
             </button>
           ))}
         </div>
-        {error && <p className="error center">{error}</p>}
+        {error && <p className="error center">⚠️ {error}</p>}
         {loading ? (
-          <p className="center">사진을 불러오는 중...</p>
+          <p className="center">📷 사진을 불러오는 중...</p>
         ) : (
           <div className="grid">
             {images.map((img) => (
