@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>트랜시와 배우는 AI 이야기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: 'Jua', 'Malgun Gothic', system-ui, sans-serif; user-select: none;
+    background: linear-gradient(180deg, #bfe8ff 0%, #e9f7ff 55%, #fff4dc 100%); }
+  canvas { position: fixed; inset: 0; display: block; }
+  #top { position: fixed; top: 10px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; padding: 0 12px; }
+  #dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  #dots i { width: 26px; height: 8px; border-radius: 5px; background: rgba(0,0,0,.15); overflow: hidden; }
+  #dots i b { display: block; height: 100%; width: 0; background: #ff9a1f; }
+  #chip { background: #ff9a1f; color: #fff; border-radius: 20px; padding: 4px 16px; font-size: 18px; box-shadow: 0 3px 0 #c06a00; }
+  #cap { background: #fff; color: #3a2a1a; border: 4px solid #ffb347; border-radius: 22px; padding: 12px 22px; max-width: min(900px, 92vw);
+    font-size: clamp(17px, 2.4vw, 28px); line-height: 1.45; text-align: center; box-shadow: 0 6px 0 rgba(255,150,30,.35); min-height: 1.4em; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 14px; display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 0 70px; }
+  .btn { background: #fff; color: #3a2a1a; border: 3px solid #ffb347; border-radius: 16px; padding: 8px 18px; font: inherit; font-size: 20px; cursor: pointer; box-shadow: 0 4px 0 #e08a1a; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #e08a1a; }
+  .btn.on { background: #ffe3a8; }
+  #home { position: fixed; right: 12px; bottom: 14px; text-decoration: none; font-size: 15px; padding: 6px 12px; }
+  #start { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: rgba(255,244,220,.92); text-align: center; padding: 0 20px; }
+  #start h1 { margin: 0; font-size: clamp(32px, 6vw, 64px); color: #ff7a1a; text-shadow: 0 4px 0 #ffd59a; }
+  #start p { margin: 0; font-size: clamp(16px, 2.4vw, 26px); color: #5a3a1a; line-height: 1.6; }
+  #start .btn { font-size: 32px; padding: 14px 44px; background: #ff9a1f; color: #fff; border-color: #ffd59a; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<div id="top">
+  <div id="dots"></div>
+  <div id="chip"></div>
+  <div id="cap"></div>
+</div>
+<div id="bar">
+  <button class="btn" id="bPrev">◀ 이전</button>
+  <button class="btn on" id="bAuto">⏸ 자동재생</button>
+  <button class="btn" id="bNext">다음 ▶</button>
+  <button class="btn on" id="bVoice">🗣 음성</button>
+  <button class="btn" id="bRe">↺ 처음부터</button>
+</div>
+<div id="start">
+  <h1>🤖 트랜시와 배우는 AI 이야기</h1>
+  <p>ChatGPT · Gemini · Claude 는 어떻게 말을 할까?<br>로봇 친구 "트랜시"와 함께 아주 쉽게 알아봐요!</p>
+  <button class="btn" id="go">▶ 시작하기</button>
+  <p style="font-size:15px;opacity:.7">🔊 소리를 켜면 트랜시가 읽어줘요 · ← → 키로도 넘길 수 있어요</p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const V3 = THREE.Vector3, FOV = 45;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, .1, 200);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xffe2b0, 1.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(5, 10, 8); scene.add(sun);
+const ST = new THREE.Group(); scene.add(ST);          // 장면별로 비워지는 무대
+
+const cam = { s: 1, ts: 1, y: 1.2, ty: 1.2 };
+const baseZ = () => Math.max(12, 17 / (2 * Math.tan(FOV * Math.PI / 360) * (innerWidth / innerHeight)));
+const lerp = (a, b, t) => a + (b - a) * t, rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ===================== 도우미 =====================
+const PAST = [0xffb3c7, 0xffd59a, 0xb8e6a0, 0x9fd8ff, 0xd2b5ff, 0xfff0a0, 0xffa8a8];
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function makeLabel(text, w, h, o = {}) {
+  const PX = 140, c = document.createElement('canvas'); c.width = Math.round(w * PX); c.height = Math.round(h * PX);
+  const g = c.getContext('2d'), tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const mat = o.sprite ? new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }) : new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+  const m = o.sprite ? new THREE.Sprite(mat) : new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  if (o.sprite) { m.scale.set(w, h, 1); m.userData.sp = [w, h]; }
+  m.userData.draw = (t, col, bg) => {
+    g.clearRect(0, 0, c.width, c.height);
+    if (bg) { g.fillStyle = bg; rr(g, 3, 3, c.width - 6, c.height - 6, Math.min(c.height / 2, 34)); g.fill(); if (o.border) { g.lineWidth = 5; g.strokeStyle = o.border; g.stroke(); } }
+    let fs = o.font || h * PX * .6; const fam = s => `${s}px Jua, "Malgun Gothic", sans-serif`;
+    g.font = fam(fs); while (g.measureText(t).width > c.width - 26 && fs > 12) { fs -= 2; g.font = fam(fs); }
+    g.fillStyle = col || o.color || '#3a2a1a'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, c.width / 2, c.height / 2 + fs * .05);
+    tex.needsUpdate = true; m.userData.text = t;
+  };
+  m.userData.draw(text, o.color, o.bg); return m;
+}
+function makeBlock(text, color) {
+  const n = [...text].length, w = Math.max(1.3, .5 * n + .8), g = new THREE.Group();
+  const body = new THREE.Mesh(new RoundedBoxGeometry(w, 1, .7, 3, .13), new THREE.MeshStandardMaterial({ color, roughness: .5 }));
+  const lab = makeLabel(text, w - .2, .75, { color: '#3a2a1a' }); lab.position.z = .36; g.add(body, lab);
+  g.userData = { w, body, lab, color }; return g;
+}
+function recolor(b, text, color) { b.userData.body.material.color.set(color); b.userData.lab.userData.draw(text); }
+function setOp(o, v) {
+  o.traverse(n => { if (n.material) for (const m of [].concat(n.material)) { m.transparent = true; m.opacity = v * (m.userData.base ?? 1); } });
+  o.visible = v > .01; o.userData.op = v;
+}
+const getS = o => o.userData.sp ? o.scale.x / o.userData.sp[0] : o.scale.x;
+const setS = (o, s) => { if (o.userData.sp) o.scale.set(o.userData.sp[0] * s, o.userData.sp[1] * s, 1); else o.scale.setScalar(s); };
+function put(o, x, y, z = 0, s = 1, op = 1) { o.position.set(x, y, z); setS(o, s); setOp(o, op); o.userData.T = { p: new V3(x, y, z), s, op }; if (!tr.includes(o)) tr.push(o); ST.add(o); return o; }
+function to(o, T) { const t = o.userData.T = o.userData.T || {}; if (T.p) t.p = new V3(...T.p); for (const k of ['s', 'sy', 'op', 'ry']) if (T[k] !== undefined) t[k] = T[k]; if (!tr.includes(o)) tr.push(o); }
+function layoutRow(blocks, y, gap = .35, sc = 1) {
+  const tot = blocks.reduce((a, b) => a + b.userData.w * sc, 0) + gap * (blocks.length - 1); let x = -tot / 2;
+  blocks.forEach(b => { b.userData.home = new V3(x + b.userData.w * sc / 2, y, 0); x += b.userData.w * sc + gap; });
+}
+const settle = bs => bs.forEach(b => { b.position.copy(b.userData.home); b.userData.T.p = b.userData.home.clone(); });
+function cyl(a, b, r, color) {
+  const d = new V3().subVectors(b, a), len = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), new THREE.MeshBasicMaterial({ color }));
+  m.position.copy(a).addScaledVector(d, .5); m.quaternion.setFromUnitVectors(new V3(0, 1, 0), d.normalize()); return m;
+}
+let tr = [], timers = [];
+const later = (fn, ms) => { const e = { fn }; e.id = setTimeout(() => { timers = timers.filter(x => x !== e); fn(); }, ms); timers.push(e); };
+function flushTimers() { const p = timers; timers = []; p.forEach(e => { clearTimeout(e.id); e.fn(); }); }   // 대기 중인 동작을 먼저 끝내고 다음 단계로
+function clearStage() {
+  timers.forEach(e => clearTimeout(e.id)); timers = []; tr = [];
+  ST.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) for (const m of [].concat(n.material)) { m.map && m.map.dispose(); m.dispose(); } });
+  ST.clear(); fxUpdate = null;
+}
+let fxUpdate = null;
+function tick(dt) {
+  const k = 1 - Math.exp(-dt * 7);
+  for (const o of tr) {
+    const T = o.userData.T; if (!T) continue;
+    if (T.p) o.position.lerp(T.p, k);
+    if (T.s !== undefined) { const c = getS(o), v = ((o.userData.vs || 0) + (T.s - c) * 170 * dt) * Math.exp(-dt * 9); o.userData.vs = v; setS(o, Math.max(.0001, c + v * dt)); }
+    if (T.sy !== undefined) o.scale.y = lerp(o.scale.y, T.sy, k);
+    if (T.ry !== undefined) o.rotation.y = lerp(o.rotation.y, T.ry, k);
+    if (T.op !== undefined) { const c = o.userData.op ?? 1; if (c !== T.op) { const n = Math.abs(T.op - c) < .004 ? T.op : lerp(c, T.op, k); setOp(o, n); } }
+  }
+}
+
+// ===================== 배경 / 바닥 =====================
+const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xfff1d4, roughness: 1 }));
+ground.position.y = -3.4; scene.add(ground);
+const bub = (() => {
+  const N = 70, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), c = new THREE.Color();
+  for (let i = 0; i < N; i++) { pos.set([rnd(-14, 14), rnd(-3, 9), rnd(-8, 2)], i * 3); c.setHSL(rnd(0, 1), .8, .8); col.set([c.r, c.g, c.b], i * 3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.beginPath(); x.arc(32, 32, 28, 0, 7); x.fill();
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: .5, vertexColors: true, map: new THREE.CanvasTexture(cv), transparent: true, opacity: .55, depthWrite: false }));
+  scene.add(p); return { p, pos, N };
+})();
+
+// ===================== 로봇 "트랜시" =====================
+const robot = (() => {
+  const g = new THREE.Group(), white = new THREE.MeshStandardMaterial({ color: 0xf4f8ff, roughness: .35 }), orange = new THREE.MeshStandardMaterial({ color: 0xffb347, roughness: .5 });
+  const head = new THREE.Group(); g.add(head);
+  head.add(new THREE.Mesh(new RoundedBoxGeometry(1.7, 1.3, 1.25, 4, .32), white));
+  const screen = new THREE.Mesh(new RoundedBoxGeometry(1.38, .88, .1, 3, .14), new THREE.MeshStandardMaterial({ color: 0x14284b, roughness: .2 })); screen.position.z = .6; head.add(screen);
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x5ff3ff }), eyes = new THREE.Group(); eyes.position.set(0, .1, .67); head.add(eyes);
+  const eL = new THREE.Mesh(new THREE.CircleGeometry(.15, 20), eyeM), eR = eL.clone(); eL.position.x = -.33; eR.position.x = .33; eyes.add(eL, eR);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.17, .035, 8, 20, Math.PI), eyeM); mouth.rotation.z = Math.PI; mouth.position.set(0, -.18, .67); head.add(mouth);
+  for (const s of [-1, 1]) { const ch = new THREE.Mesh(new THREE.CircleGeometry(.09, 12), new THREE.MeshBasicMaterial({ color: 0xff8fb0 })); ch.position.set(s * .55, -.1, .67); head.add(ch);
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, .2, 14), orange); ear.rotation.z = Math.PI / 2; ear.position.x = s * .92; head.add(ear); }
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .35, 8), white); stick.position.y = .8; head.add(stick);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.14, 14, 10), new THREE.MeshStandardMaterial({ color: 0x5ff3ff, emissive: 0x2bc0d0, emissiveIntensity: 1 })); ball.position.y = 1.05; head.add(ball);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.25, .95, .95, 4, .26), orange); body.position.y = -1.15; g.add(body);
+  const belly = new THREE.Mesh(new THREE.CircleGeometry(.28, 20), new THREE.MeshBasicMaterial({ color: 0xfff3cf })); belly.position.set(0, -1.15, .48); g.add(belly);
+  const arms = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * .8, -.95, 0); const a = new THREE.Mesh(new THREE.CapsuleGeometry(.14, .5, 4, 8), white); a.position.y = -.3; p.add(a); g.add(p); return p; });
+  for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(.16, .18, .3, 10), white); l.position.set(s * .32, -1.8, 0); g.add(l); }
+  g.userData = { head, eyes, mouth, ball, arms, eyeM };
+  return g;
+})();
+scene.add(robot);
+const RS = { look: new V3(0, 0, 0), mood: 'happy', wave: 0, hop: 0, baseY: -1.45 };
+const MOODS = { happy: { ball: 0x5ff3ff, my: 1, mr: Math.PI, es: 1 }, think: { ball: 0xffe14d, my: .2, mr: Math.PI, es: .8 }, oops: { ball: 0xff5a5a, my: 1, mr: 0, es: .7 }, wow: { ball: 0xff7ae6, my: 1.5, mr: Math.PI, es: 1.35 } };
+function mood(m) { RS.mood = m; const M = MOODS[m]; robot.userData.ball.material.color.set(M.ball); robot.userData.ball.material.emissive.set(M.ball); }
+function lookAt(o) { o.getWorldPosition(RS.look); }
+function updateRobot(t, dt) {
+  const u = robot.userData, M = MOODS[RS.mood], k = 1 - Math.exp(-dt * 8);
+  RS.hop = Math.max(0, RS.hop - dt); robot.position.y = RS.baseY + Math.sin(t * 2) * .06 + (RS.hop > 0 ? Math.abs(Math.sin(RS.hop * 9)) * .7 : 0);
+  const dx = clamp((RS.look.x - robot.position.x) * .04, -.3, .3), dy = clamp((RS.look.y - robot.position.y) * .05, -.2, .2);
+  u.head.rotation.y = lerp(u.head.rotation.y, dx * 1.5, k); u.head.rotation.x = lerp(u.head.rotation.x, -dy, k);
+  u.eyes.position.x = lerp(u.eyes.position.x, dx * .5, k); u.eyes.position.y = lerp(u.eyes.position.y, .1 + dy * .5, k);
+  const bl = (t % 3.6) < .12 ? .1 : 1; u.eyes.scale.set(M.es, M.es * bl, 1);
+  u.mouth.scale.y = lerp(u.mouth.scale.y, M.my, k); u.mouth.rotation.z = lerp(u.mouth.rotation.z, M.mr, k);
+  u.ball.scale.setScalar(1 + Math.sin(t * 5) * .15);
+  RS.wave = Math.max(0, RS.wave - dt);
+  u.arms[1].rotation.z = RS.wave > 0 ? Math.PI * .8 + Math.sin(t * 14) * .45 : lerp(u.arms[1].rotation.z, .15, k);
+  u.arms[0].rotation.z = lerp(u.arms[0].rotation.z, -.15, k);
+}
+
+// ===================== 장면들 =====================
+const POP = (o, ms = 0, extra = {}) => { const f = () => to(o, { s: extra.s ?? 1, op: 1, ...extra }); ms ? later(f, ms) : f(); };
+const SCENES = [];
+
+// ---- 0. 소개 ----
+SCENES.push({ title: '1. 안녕, 나는 트랜시!', caps: [
+  '안녕! 나는 로봇 친구 트랜시야 🤖 AI가 어떻게 말을 하는지, 아주 쉽게 알려줄게!',
+  'ChatGPT도, Gemini도, Claude도 모두 같은 비밀 기술을 써. 그 이름은 바로 "트랜스포머"!',
+  'AI가 하는 일은 딱 하나! "다음에 올 말 맞추기" 놀이야.',
+  '"나는 아침에 빵을…" 다음엔 뭐가 올까? "먹었어요"가 제일 그럴듯하지? AI는 이런 걸 엄청 잘 맞춰!'],
+  make() {
+    const names = ['나는', '아침에', '빵을', '?'], cols = [PAST[0], PAST[1], PAST[3], 0xfff06a];
+    const blocks = names.map((n, i) => put(makeBlock(n, cols[i]), 0, 0, 0, .001, 0)); layoutRow(blocks, 1.4);
+    const badges = [['ChatGPT', '#10a37f', -4.6], ['Gemini', '#4a7cf0', 0, ], ['Claude', '#d97757', 4.6]].map(([n, c, x]) => put(makeLabel(n, 3, .85, { bg: c, color: '#fff' }), x, 3.0, 0, .001, 0));
+    const big = put(makeLabel('트랜스포머', 6.4, 1.5, { bg: '#fff', color: '#ff7a1a', border: '#ffb347' }), 0, .7, 0, .001, 0);
+    const cands = [['먹었어요 😋', 0, 1.35], ['샀어요', -3.6, .9], ['그렸어요', 3.6, .75]].map(([n, x, s]) => put(makeLabel(n, 3.2, .9, { bg: '#fff', border: '#ffb347' }), x, 3.0, 0, .001, 0));
+    const cs = [1.35, .9, .75];
+    fxUpdate = (t) => { const q = blocks[3]; if (q.userData.op > .5) q.scale.setScalar(1 + Math.sin(t * 5) * .06); };
+    return { run: [
+      () => { RS.wave = 3; RS.hop = 1; mood('happy'); lookAt(camera); },
+      () => { badges.forEach((b, i) => POP(b, i * 250)); POP(big, 800); mood('wow'); RS.hop = 1; },
+      () => { [...badges, big].forEach(b => to(b, { s: .001, op: 0 })); blocks.forEach((b, i) => { POP(b, i * 250); to(b, { p: [b.userData.home.x, b.userData.home.y, 0] }); b.position.copy(b.userData.home); }); mood('think'); },
+      () => { cands.forEach((c, i) => POP(c, i * 300, { s: cs[i] })); mood('happy'); RS.hop = 1; }] };
+  } });
+
+// ---- 1. 토큰 ----
+SCENES.push({ title: '2. 말을 레고 조각으로 자르기', caps: [
+  '컴퓨터는 글자를 그대로 읽지 못해. 그래서 먼저 문장을 싹둑싹둑! 레고 조각처럼 잘라야 해 ✂️',
+  '이렇게 잘린 조각 하나하나를 "토큰"이라고 불러.',
+  '그리고 조각마다 번호표를 붙여줘. 컴퓨터는 숫자만 알아듣거든!'],
+  make() {
+    const plank = new THREE.Group();
+    plank.add(new THREE.Mesh(new RoundedBoxGeometry(11.6, 1.5, .5, 3, .15), new THREE.MeshStandardMaterial({ color: 0xe9c88a })));
+    const pl = makeLabel('고양이가 우유를 마셨어요', 11, 1.1, { color: '#5a3a10' }); pl.position.z = .26; plank.add(pl);
+    put(plank, 0, 1.2, 0, .001, 0);
+    const cuts = [.23, .31, .54, .62].map(f => put(new THREE.Mesh(new THREE.BoxGeometry(.07, 1.8, .6), new THREE.MeshBasicMaterial({ color: 0xff4d6d })), -5.3 + f * 10.6, 1.2, .1, 1, 0));
+    const scissors = put(makeLabel('✂️', 1.2, 1.2, { sprite: true, font: 110 }), -6, 2.4, .5, 1, 0);
+    const words = ['고양이', '가', '우유', '를', '마셨어요'], ids = ['#1042', '#77', '#5310', '#21', '#8833'];
+    const blocks = words.map((w, i) => put(makeBlock(w, PAST[i]), 0, 1.2, 0, .001, 0)); layoutRow(blocks, 1.2, .4);
+    const tags = ids.map(id => put(makeLabel(id, 1.4, .6, { bg: '#fff', border: '#ffb347', color: '#d9541a' }), 0, 0, 0, .001, 0));
+    let cutting = false;
+    fxUpdate = (t) => {
+      if (cutting) { const u = (t * .45) % 1; scissors.position.x = -5.6 + u * 11.2; scissors.position.y = 2.4 + Math.sin(t * 14) * .12; cuts.forEach((c, i) => setOp(c, scissors.position.x > c.position.x ? 1 : 0)); }
+    };
+    cuts.forEach(c => setOp(c, 0));
+    return { run: [
+      () => { to(plank, { s: 1, op: 1 }); cutting = true; setOp(scissors, 1); to(scissors, { s: 1, op: 1 }); mood('happy'); lookAt(plank); },
+      () => { cutting = false; to(plank, { s: .001, op: 0 }); to(scissors, { s: .001, op: 0 }); cuts.forEach(c => to(c, { op: 0, s: .001 }));
+        blocks.forEach((b, i) => { b.position.set(0, 1.2, 0); b.userData.T.p = new V3(b.userData.home.x, 1.2, 0); POP(b, i * 160); }); RS.hop = 1; mood('wow'); },
+      () => { tags.forEach((t, i) => { const h = blocks[i].userData.home; t.position.set(h.x, -.2, 0); t.userData.T.p = new V3(h.x, -.2, 0); POP(t, i * 160); }); mood('think'); }] };
+  } });
+
+// ---- 2. 임베딩 ----
+SCENES.push({ title: '3. 뜻을 "위치"로 바꾸기', caps: [
+  '이번엔 "뜻"을 알려줄 거야. 번호표만으론 뜻을 몰라. 그래서 뜻을 우주 속 "위치"로 바꿔!',
+  '비슷한 말은 가까운 마을에 살아. 고양이·강아지·호랑이는 "동물 마을", 우유·물·주스는 "음료 마을"!',
+  '고양이랑 강아지는 이웃이야 💕 하지만 자동차는 아주 멀리 살아. 위치가 가까울수록 뜻이 비슷하다는 거야.',
+  '이 위치는 사실 숫자 목록이야. 진짜 AI는 숫자를 수천 개나 써서 아주 섬세하게 뜻을 표현해!'],
+  make() {
+    const W = new THREE.Group(); ST.add(W); W.position.y = .6;
+    const grid = new THREE.GridHelper(10, 10, 0xffb347, 0xffd9a0); grid.position.y = -1.8; W.add(grid);
+    [[0xff6b6b, [4, 0, 0]], [0x4dd070, [0, 4, 0]], [0x4d8bff, [0, 0, 4]]].forEach(([c, v]) => W.add(cyl(new V3(0, -1.8, 0), new V3(v[0], v[1] - 1.8, v[2]), .04, c)));
+    const D = [['동물', 0xff9a3c, [[-3, 1.5, .5, '고양이'], [-2.1, 2, 1.2, '강아지'], [-3.6, 2.3, -.3, '호랑이']]],
+               ['음료', 0x4d9bff, [[3, 1, 1, '우유'], [3.8, 1.6, 0, '물'], [2.5, 1.9, -.6, '주스']]],
+               ['행동', 0x35c46a, [[.5, 3, -1.2, '마셨어요'], [1.1, 3.6, -.5, '먹었어요']]],
+               ['탈것', 0xb06bff, [[-1, -1, 3, '자동차'], [-.2, -.6, 3.7, '비행기']]]];
+    const groups = D.map(([name, col, pts]) => {
+      const gp = new THREE.Group(), c = new V3(); pts.forEach(p => c.add(new V3(p[0], p[1], p[2]))); c.multiplyScalar(1 / pts.length);
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .15, depthWrite: false })); halo.position.copy(c); halo.material.userData.base = .15; gp.add(halo);
+      const tag = makeLabel(name + ' 마을', 2.4, .6, { sprite: true, bg: '#' + new THREE.Color(col).getHexString(), color: '#fff' }); tag.position.copy(c).add(new V3(0, -1.5, 0)); gp.add(tag);
+      pts.forEach(p => { const s = new THREE.Mesh(new THREE.SphereGeometry(.24, 16, 12), new THREE.MeshStandardMaterial({ color: col, roughness: .4 })); s.position.set(p[0], p[1], p[2]); gp.add(s);
+        const l = makeLabel(p[3], 1.9, .6, { sprite: true, bg: '#fff', border: '#' + new THREE.Color(col).getHexString() }); l.position.set(p[0], p[1] + .6, p[2]); gp.add(l); });
+      gp.userData.T = { s: .001, op: 0 }; put(gp, 0, 0, 0, .001, 0); W.add(gp); return gp;
+    });
+    const pos = n => { for (const d of D) for (const p of d[2]) if (p[3] === n) return new V3(p[0], p[1], p[2]); };
+    const near = cyl(pos('고양이'), pos('강아지'), .06, 0x35c46a), far = cyl(pos('고양이'), pos('자동차'), .05, 0xff5a5a);
+    const nl = makeLabel('가까워요 💕', 2.4, .6, { sprite: true, bg: '#d9ffe5', color: '#1c8a45' }), fl = makeLabel('멀어요 ↔', 2.2, .6, { sprite: true, bg: '#ffe0e0', color: '#c43030' });
+    nl.position.copy(pos('고양이')).add(pos('강아지')).multiplyScalar(.5).add(new V3(0, 1.1, 0)); fl.position.copy(pos('고양이')).add(pos('자동차')).multiplyScalar(.5).add(new V3(-.4, .3, 0));
+    const nums = makeLabel('고양이 = [ 0.8, -0.3, 0.5, 0.1, … ]', 6.2, .8, { sprite: true, bg: '#fff8d6', border: '#ffb347', color: '#7a4a00' }); nums.position.set(-3, 3.4, .5);
+    [near, far, nl, fl, nums].forEach(o => { W.add(o); setOp(o, 0); });
+    fxUpdate = (t, dt) => { W.rotation.y += dt * .12; };
+    return { run: [
+      () => { mood('think'); lookAt(W); },
+      () => { groups.forEach((g, i) => later(() => { to(g, { s: 1, op: 1 }); }, i * 700)); mood('happy'); },
+      () => { [near, far, nl, fl].forEach(o => setOp(o, 1)); mood('wow'); RS.hop = 1; },
+      () => { setOp(nums, 1); mood('think'); }] };
+  } });
+
+// ---- 3. 어텐션 ----
+SCENES.push({ title: '4. 누구를 쳐다볼까? (어텐션)', caps: [
+  '이제 제일 중요한 비밀! 이름은 "어텐션". 쉽게 말하면 "누구를 쳐다볼까?" 👀',
+  '"마셨어요"는 누가, 뭘 마셨는지 알고 싶어서 "고양이"와 "우유"를 열심히 쳐다봐. 빛이 굵을수록 더 집중하는 거야!',
+  '"그건"은 뭘까? 앗, 우유를 쳐다보니 알겠다! 이렇게 말과 말 사이의 관계를 알아내.',
+  '눈은 하나가 아니야! 여러 개의 눈이 동시에 서로 다른 걸 쳐다봐. 이걸 "멀티헤드 어텐션"이라고 불러.'],
+  make() {
+    const names = ['고양이가', '우유를', '마셨어요', '그건', '따뜻했어요'];
+    const blocks = names.map((n, i) => put(makeBlock(n, PAST[i]), 0, .8, 0, .001, 0)); layoutRow(blocks, .8, .3, .85);
+    settle(blocks);
+    const HC = [0x3d8bff, 0x35c46a, 0xff6fae], beamMats = HC.map(c => new THREE.MeshBasicMaterial({ color: c }));
+    const beadGeo = new THREE.SphereGeometry(1, 8, 6), beams = [], N = 24;
+    for (let h = 0; h < 3; h++) for (const q of [2, 3]) for (let k = 0; k < 5; k++) if (k !== q) {
+      const gp = new THREE.Group(), beads = []; for (let i = 0; i < N; i++) { const m = new THREE.Mesh(beadGeo, beamMats[h]); gp.add(m); beads.push(m); }
+      ST.add(gp); beams.push({ gp, beads, h, q, k, w: 0, tw: 0 });
+    }
+    const setW = (h, q, arr) => beams.forEach(b => { if (b.h === h && b.q === q) b.tw = arr[b.k] ?? 0; });
+    const clear = () => beams.forEach(b => b.tw = 0);
+    const mk = (t, bg, c, x, y) => put(makeLabel(t, 2.6, .7, { sprite: true, bg, color: c, border: '#fff' }), x, y, .5, .001, 0);
+    const who = mk('누가? 🙋', '#dfeaff', '#2255bb', blocks[0].userData.home.x - .6, 3.2), what = mk('무엇을? 🥛', '#dfffe9', '#1c8a45', blocks[1].userData.home.x + .8, 3.2);
+    const eq = mk('그건 = 우유!', '#fff3c9', '#b36a00', blocks[3].userData.home.x, 2.2);
+    const legend = ['🔵 누가 눈', '🟢 무엇 눈', '🩷 이웃 눈'].map((t, i) => mk(t, ['#dfeaff', '#dfffe9', '#ffe0ee'][i], ['#2255bb', '#1c8a45', '#c02c70'][i], -5.6 + i * 2.9, 3.6));
+    const hi = q => blocks.forEach((b, i) => { b.userData.hl = i === q; to(b, { p: [b.userData.home.x, b.userData.home.y + (i === q ? .3 : 0), 0] }); });
+    const A = new V3(), B = new V3(), C = new V3();
+    fxUpdate = (t, dt) => {
+      for (const b of beams) {
+        b.w = lerp(b.w, b.tw, 1 - Math.exp(-dt * 5)); b.gp.visible = b.w > .02; if (!b.gp.visible) continue;
+        A.copy(blocks[b.k].position).y += .6; B.copy(blocks[b.q].position).y += .6;
+        C.copy(A).add(B).multiplyScalar(.5); C.y += 1 + Math.abs(A.x - B.x) * .17 + b.h * .6;
+        b.beads.forEach((m, i) => { const u = (i / N + t * .35) % 1, v = 1 - u;
+          m.position.set(v * v * A.x + 2 * v * u * C.x + u * u * B.x, v * v * A.y + 2 * v * u * C.y + u * u * B.y, 0.4 + b.h * .15);
+          m.scale.setScalar((.05 + b.w * .24) * (.4 + .6 * Math.sin(Math.PI * u))); });
+      }
+      const pulse = 1 + Math.sin(t * 6) * .02; blocks.forEach(b => { if (b.userData.op > .5) b.userData.T.s = (b.userData.hl ? 1.15 : 1) * .85 * pulse; });
+    };
+    return { run: [
+      () => { blocks.forEach((b, i) => { b.userData.T.s = .85; POP(b, i * 200, { s: .85 }); }); mood('wow'); lookAt(blocks[2]); },
+      () => { clear(); hi(2); setW(0, 2, [.95, .9, 0, .1, .1]); POP(who, 400); POP(what, 700); lookAt(blocks[2]); mood('think'); },
+      () => { clear(); hi(3); setW(0, 3, [.15, 1, .2, 0, .25]); to(who, { s: .001, op: 0 }); to(what, { s: .001, op: 0 }); POP(eq, 600); recolor(blocks[3], '그건', 0x9fd8ff); lookAt(blocks[3]); mood('happy'); RS.hop = 1; },
+      () => { clear(); hi(2); to(eq, { s: .001, op: 0 }); setW(0, 2, [1, 0, 0, 0, 0]); setW(1, 2, [0, 1, 0, 0, 0]); setW(2, 2, [.2, .5, 0, .8, .3]); legend.forEach((l, i) => POP(l, i * 250)); lookAt(blocks[2]); mood('wow'); }] };
+  } });
+
+// ---- 4. 층층이 ----
+SCENES.push({ title: '5. 층층이 쌓아서 깊게 생각하기', caps: [
+  '이 "쳐다보기"를 딱 한 번만 하는 게 아니야. 층층이 여러 번 쌓아! 🏢',
+  '층을 올라갈수록 문장을 더 깊이 이해해. 아래층은 글자 모양, 중간층은 문법, 꼭대기는 진짜 뜻!',
+  '큰 AI는 이런 층이 수십~백 개나 돼! 그래서 아주 똑똑한 거야 🧠'],
+  make() {
+    const floors = [], FN = 18;
+    for (let i = 0; i < FN; i++) { const f = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, .16, 32), new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(.08 + i * .012, .9, .72), roughness: .3 }));
+      f.material.userData.base = .45; put(f, 0, -2.4 + i * .9, 0, 1, 0); floors.push(f); }
+    const names = ['고양이', '가', '우유', '를', '마셨어요'], minis = names.map((n, i) => { const m = makeBlock(n, PAST[i]); const g = put(m, -2.2 + i * 1.1, -2.9, .6, .42, 1); return g; });
+    const labs = [[0, '1층 ✏️ 글자 모양'], [2, '3층 📏 문법'], [5, '6층 💡 진짜 뜻']].map(([i, t]) => put(makeLabel(t, 3.6, .7, { sprite: true, bg: '#fff', border: '#ffb347' }), 5.2, -2.4 + i * .9 + .3, 0, .001, 0));
+    let top = 0.1;
+    fxUpdate = (t) => minis.forEach((b, i) => { const m = clamp((b.position.y + 2.9) / 7, 0, 1); b.userData.body.material.emissive.setRGB(1 * m, .75 * m, .1 * m); b.userData.body.material.emissiveIntensity = .5; b.rotation.y = Math.sin(t * 2 + i) * .15 * m; });
+    return { run: [
+      () => { floors.slice(0, 6).forEach((f, i) => { f.position.y = 4; f.userData.T.p = new V3(0, -2.4 + i * .9, 0); POP(f, i * 160, { s: 1, op: 1 }); }); mood('wow'); lookAt(floors[3]); },
+      () => { labs.forEach((l, i) => POP(l, 1800 + i * 400)); minis.forEach((b, i) => { later(() => to(b, { p: [-2.2 + i * 1.1, -2.4 + 5 * .9 + .7, .6] }), i * 250); }); mood('think'); lookAt(floors[5]); },
+      () => { cam.ts = 1.75; cam.ty = 3.6; floors.forEach((f, i) => { to(f, { p: [0, -2.4 + i * .5, 0] }); if (i >= 6) later(() => to(f, { op: 1 }), (i - 6) * 150); });
+        labs.forEach(l => to(l, { s: .001, op: 0 })); minis.forEach((b, i) => later(() => to(b, { p: [-2.2 + i * 1.1, -2.4 + 17 * .5 + .6, .6] }), i * 250)); mood('wow'); RS.hop = 2; }] };
+  } });
+
+// ---- 5. 다음 말 고르기 ----
+SCENES.push({ title: '6. 다음 말 뽑기 🎲', caps: [
+  '문장을 다 이해했으면 이제 "다음 말"을 골라야 해. "고양이가 우유를 ___" 뭐가 올까?',
+  '로봇은 모든 후보에 점수(확률)를 매겨. "마셨어요"가 가장 높고, "날았어요"는 거의 없어!',
+  '그리고 주사위를 굴려서 뽑아! 🎲 점수가 높을수록 잘 뽑히지만 가끔 다른 말도 나와. 그래서 같은 질문에도 매번 조금씩 다른 대답이 나와!'],
+  make() {
+    const blocks = [['고양이가', PAST[0]], ['우유를', PAST[3]], ['?', 0xfff06a]].map(([n, c]) => put(makeBlock(n, c), 0, 3.4, 0, .001, 0)); layoutRow(blocks, 3.4, .35); settle(blocks);
+    const words = ['마셨어요', '먹었어요', '좋아해요', '던졌어요', '날았어요'], pct = [62, 21, 9, 5, 3];
+    const bars = words.map((w, i) => {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1, 1.1).translate(0, .5, 0), new THREE.MeshStandardMaterial({ color: [0xff9a3c, 0xffc84d, 0x9be07a, 0x7fc8ff, 0xc9a8ff][i], roughness: .45 }));
+      put(bar, -5.2 + i * 1.75, -2.5, 0, 1, 1); bar.scale.y = .01; delete bar.userData.T.s; bar.userData.T.sy = .01;
+      const wl = makeLabel(w, 1.6, .5, { sprite: true, bg: '#fff', border: '#ffb347' }); wl.position.set(bar.position.x, -2.95, .8); ST.add(wl);
+      const pl = makeLabel(pct[i] + '%', 1.3, .55, { sprite: true, bg: '#fff3c9', color: '#b36a00' }); pl.position.set(bar.position.x, -2.2, .8); ST.add(pl); setOp(pl, 0);
+      return { bar, wl, pl }; });
+    const faces = [1, 2, 3, 4, 5, 6].map(n => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#e33';
+      const P = { 1: [[64, 64]], 2: [[34, 34], [94, 94]], 3: [[34, 34], [64, 64], [94, 94]], 4: [[34, 34], [94, 34], [34, 94], [94, 94]], 5: [[34, 34], [94, 34], [64, 64], [34, 94], [94, 94]], 6: [[34, 30], [94, 30], [34, 64], [94, 64], [34, 98], [94, 98]] }[n];
+      P.forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill(); }); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ map: t }); });
+    const dice = put(new THREE.Mesh(new RoundedBoxGeometry(1.4, 1.4, 1.4, 3, .15), faces), 5.4, .4, 0, 1, 0);
+    let roll = -1, chosen = 0;
+    const pick = () => { let r = Math.random() * 100, a = 0; for (let i = 0; i < 5; i++) { a += pct[i]; if (r < a) return i; } return 0; };
+    fxUpdate = (t, dt) => {
+      if (blocks[2].userData.op > .5 && roll < 0) blocks[2].scale.setScalar(1 + Math.sin(t * 5) * .06);
+      if (roll >= 0) { roll += dt; const k = clamp(roll / 2.4, 0, 1);
+        if (k < 1) { dice.position.y = .4 + Math.abs(Math.sin(roll * 7)) * 2 * (1 - k); dice.rotation.x += dt * 14 * (1 - k); dice.rotation.y += dt * 11 * (1 - k); }
+        else if (!dice.userData.done) { dice.userData.done = 1; const c = bars[chosen]; c.bar.material.emissive.set(0xffffff); c.bar.material.emissiveIntensity = .45; recolor(blocks[2], words[chosen], 0xb8e6a0); blocks[2].scale.setScalar(.2); to(blocks[2], { s: 1 }); mood('wow'); RS.hop = 1.5; c.pl.userData.draw(pct[chosen] + '% 당첨! 🎉', '#fff', '#35c46a'); }
+      }
+      bars.forEach(b => { b.pl.position.y = b.bar.scale.y * 1 + -2.5 + .4; });
+    };
+    return { run: [
+      () => { blocks.forEach((b, i) => POP(b, i * 250)); mood('think'); lookAt(blocks[2]); },
+      () => { bars.forEach((b, i) => { b.bar.userData.T.sy = pct[i] * .05 + .05; later(() => setOp(b.pl, 1), 500 + i * 120); }); mood('happy'); },
+      () => { chosen = pick(); to(dice, { op: 1 }); setOp(dice, 1); later(() => { roll = 0; }, 400); mood('wow'); lookAt(dice); }] };
+  } });
+
+// ---- 6. 반복 ----
+SCENES.push({ title: '7. 한 조각씩 이어 붙이기', caps: [
+  '고른 말은 문장 끝에 쏙! 붙여. 그리고 또 "다음 말 맞추기"를 해.',
+  '붙이고, 맞추고, 붙이고, 맞추고… 반복반복! 이렇게 한 조각씩 이어 붙여서 긴 글이 완성돼 ✨',
+  'ChatGPT가 대답을 쓸 때도 똑같아. 한 조각씩, 한 조각씩! 그래서 글자가 타다닥 나타나는 거야.'],
+  make() {
+    const row1 = ['고양이가', '우유를', '마셨어요'], row2 = ['그래서', '배가', '불렀어요', '.'];
+    const b1 = row1.map((n, i) => makeBlock(n, PAST[i])), b2 = row2.map((n, i) => makeBlock(n, PAST[(i + 3) % 7]));
+    layoutRow(b1, 2.6, .3, .9); layoutRow(b2, .9, .3, .9); [...b1, ...b2].forEach(b => put(b, b.userData.home.x, b.userData.home.y, 0, .001, 0));
+    const bubble = put(makeLabel('다음 말은…? 🤔', 3.4, .85, { sprite: true, bg: '#fff', border: '#ffb347' }), -6.2, .9, .5, .001, 0);
+    const cnt = put(makeLabel('붙인 조각: 0', 3.4, .7, { sprite: true, bg: '#fff3c9', color: '#b36a00' }), 5.3, 3.6, .5, 1, 0);
+    let n = 0; const add = b => { b.position.set(robot.position.x, robot.position.y + .4, 0); b.userData.T.p = b.userData.home.clone(); POP(b, 0, { s: .9 }); n++; cnt.userData.draw('붙인 조각: ' + n, '#b36a00', '#fff3c9'); RS.hop = .6; };
+    return { run: [
+      () => { b1.forEach((b, i) => { b.position.copy(b.userData.home); POP(b, i * 220, { s: .9 }); }); n = 3; to(cnt, { op: 1 }); cnt.userData.draw('붙인 조각: 3', '#b36a00', '#fff3c9'); POP(bubble, 900); mood('think'); lookAt(b1[2]); },
+      () => { mood('think'); b2.forEach((b, i) => { later(() => { POP(bubble, 0); mood('think'); }, i * 1900); later(() => { to(bubble, { s: .001, op: 0 }); mood('happy'); add(b); }, i * 1900 + 1000); }); },
+      () => { to(bubble, { s: .001, op: 0 }); mood('wow'); RS.hop = 2; }] };
+  } });
+
+// ---- 7. 학습 ----
+SCENES.push({ title: '8. 어떻게 이렇게 똑똑해졌을까?', caps: [
+  '트랜시는 어떻게 이렇게 똑똑해졌을까? 책이랑 인터넷 글을 엄청나게 많이 읽었어! 📚',
+  '공부 방법은 숨바꼭질! 단어 하나를 가려놓고 맞혀 봐. 처음엔 틀려서 "앗, 틀렸다!" 하지.',
+  '틀리면 로봇 속 "손잡이"를 아주 조금 돌려. 이 손잡이가 수천억 개야! 돌리고, 맞히고, 또 돌리고… 🎛️',
+  '이걸 몇 조 번 반복하면… 책 수백만 권을 읽은 것처럼 똑똑해져! 그래서 AI 만드는 데는 슈퍼컴퓨터가 필요해.'],
+  make() {
+    const BN = 90, books = new THREE.InstancedMesh(new THREE.BoxGeometry(.5, .7, .16), new THREE.MeshStandardMaterial({ roughness: .5 }), BN), dm = new THREE.Object3D(), col = new THREE.Color();
+    const seed = Array.from({ length: BN }, (_, i) => ({ u: Math.random(), y: rnd(-1, 4), z: rnd(-2, 1), sp: rnd(.12, .3), ph: rnd(0, 6) }));
+    for (let i = 0; i < BN; i++) { books.setColorAt(i, col.setHSL(Math.random(), .7, .65)); } books.count = 0; books.frustumCulled = false; ST.add(books);
+    const blocks = [['고양이가', PAST[0]], ['???', 0xcfcfcf], ['마셨어요', PAST[2]]].map(([n, c]) => put(makeBlock(n, c), 0, 3.3, 0, .001, 0)); layoutRow(blocks, 3.3, .4); settle(blocks);
+    const guess = put(makeLabel('로봇: 자동차? ❌', 4, .85, { sprite: true, bg: '#ffe0e0', color: '#c43030', border: '#ff8a8a' }), 0, 4.3, .5, .001, 0);
+    const answer = put(makeLabel('정답: 우유! ✅', 4, .85, { sprite: true, bg: '#d9ffe5', color: '#1c8a45', border: '#6bd48e' }), 0, 4.3, .5, .001, 0);
+    const meter = new THREE.Group(); const bgm = new THREE.Mesh(new RoundedBoxGeometry(7.2, .5, .3, 2, .12), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    const fill = new THREE.Mesh(new THREE.BoxGeometry(1, .38, .32).translate(.5, 0, 0), new THREE.MeshStandardMaterial({ color: 0x35c46a })); fill.position.set(-3.5, 0, .05); meter.add(bgm, fill);
+    const mt = makeLabel('"우유" 맞힐 확률: 3%', 5.6, .7, { sprite: true, bg: '#fff3c9', color: '#b36a00' }); mt.position.set(0, .7, .3); meter.add(mt); put(meter, 1.6, 4.3, 0, .001, 0);
+    const panel = new THREE.Group(); panel.add(new THREE.Mesh(new RoundedBoxGeometry(8.6, 4.6, .3, 3, .2), new THREE.MeshStandardMaterial({ color: 0x5a6b8c, roughness: .5 })));
+    const knobs = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) { const k = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .25, 16), new THREE.MeshStandardMaterial({ color: 0xffd35a, roughness: .35 })); body.rotation.x = Math.PI / 2; const tick = new THREE.Mesh(new THREE.BoxGeometry(.07, .3, .1), new THREE.MeshBasicMaterial({ color: 0x2a2a2a })); tick.position.set(0, .15, .15); k.add(body, tick); k.position.set(-3.5 + c, -1.5 + r * 1, .25); k.userData.a = rnd(0, 6); k.userData.ta = k.userData.a; panel.add(k); knobs.push(k); }
+    put(panel, 1.6, .3, -.5, .001, 0);
+    let books_on = false, learn = false, p = .03, nt = 0, lastPc = -1;
+    fxUpdate = (t, dt) => {
+      books.count = books_on ? BN : 0;
+      if (books_on) seed.forEach((s, i) => { s.u = (s.u + dt * s.sp) % 1; const u = s.u, x = lerp(9, robot.position.x + .6, u), y = lerp(s.y, robot.position.y + .8, u) + Math.sin(u * 8 + s.ph) * .3; dm.position.set(x, y, s.z); dm.rotation.set(t * 2 + i, t * 3, 0); dm.scale.setScalar(1 - u * .7); dm.updateMatrix(); books.setMatrixAt(i, dm.matrix); }); books.instanceMatrix.needsUpdate = true;
+      if (learn) { nt -= dt; if (nt <= 0) { nt = .22; knobs.forEach(k => k.userData.ta += rnd(-.5, .5)); }
+        p = Math.min(.97, p + dt * .12 * (1 - p) + dt * .02); fill.scale.x = Math.max(.01, p * 7); const pc = Math.round(p * 100); if (pc !== lastPc) { lastPc = pc; mt.userData.draw(`"우유" 맞힐 확률: ${pc}%`, '#b36a00', '#fff3c9'); } }
+      knobs.forEach(k => { k.userData.a = lerp(k.userData.a, k.userData.ta, .2); k.rotation.z = k.userData.a; });
+    };
+    fill.scale.x = .21;
+    return { run: [
+      () => { books_on = true; mood('wow'); RS.hop = 1; lookAt(books); RS.look.set(8, 1, 0); },
+      () => { books_on = false; blocks.forEach((b, i) => POP(b, i * 200)); later(() => { POP(guess, 0); mood('oops'); }, 1000); later(() => { to(guess, { s: .001, op: 0 }); POP(answer, 0); recolor(blocks[1], '우유', 0xb8e6a0); mood('happy'); }, 2800); lookAt(blocks[1]); },
+      () => { to(answer, { s: .001, op: 0 }); blocks.forEach(b => to(b, { p: [b.userData.home.x - 3.6, 3.3, 0], s: .7 })); POP(meter, 0); POP(panel, 300, { s: .95 }); learn = true; mood('think'); },
+      () => { books_on = true; mood('wow'); RS.hop = 2; }] };
+  } });
+
+// ---- 8. 마무리 ----
+SCENES.push({ title: '9. 정리해볼까요?', caps: [
+  '정리해볼까? 자르고 → 위치로 바꾸고 → 쳐다보고 → 층층이 생각하고 → 다음 말을 뽑아!',
+  '이걸 한 조각씩 반복하면 ChatGPT, Gemini, Claude 같은 AI가 글을 써! 이제 너도 AI 박사님! 🎉'],
+  make() {
+    const items = [['✂️ 자르기', '#ffd6e0'], ['📍 위치로', '#ffe9b8'], ['👀 쳐다보기', '#d6f5d0'], ['🏢 층층이', '#d3ecff'], ['🎲 다음 말', '#e6d8ff']].map(([t, c], i) => put(makeLabel(t, 2.6, 1.3, { bg: c, border: '#fff', font: 56 }), -6 + i * 3, 1.6, 0, .001, 0));
+    const arrows = [0, 1, 2, 3].map(i => put(makeLabel('➜', .6, .6, { sprite: true, font: 60, color: '#ff9a1f' }), -4.5 + i * 3, 1.6, .1, .001, 0));
+    const fin = put(makeLabel('다음 말 맞추기 + 어텐션 = 생성형 AI', 11, 1.2, { bg: '#fff', color: '#ff7a1a', border: '#ffb347' }), 0, 3.5, 0, .001, 0);
+    const N = 240, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), c = new THREE.Color(), vel = [];
+    for (let i = 0; i < N; i++) { pos.set([rnd(-9, 9), rnd(6, 14), rnd(-2, 3)], i * 3); c.setHSL(Math.random(), .9, .6); col.set([c.r, c.g, c.b], i * 3); vel.push([rnd(-.5, .5), rnd(1.5, 3.5)]); }
+    const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); cg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const conf = new THREE.Points(cg, new THREE.PointsMaterial({ size: .28, vertexColors: true })); conf.visible = false; ST.add(conf); let on = false;
+    fxUpdate = (t, dt) => { if (!on) return; for (let i = 0; i < N; i++) { pos[i * 3 + 1] -= vel[i][1] * dt; pos[i * 3] += Math.sin(t * 2 + i) * dt * vel[i][0]; if (pos[i * 3 + 1] < -3.2) pos[i * 3 + 1] = rnd(6, 10); } cg.attributes.position.needsUpdate = true; };
+    return { run: [
+      () => { items.forEach((b, i) => { POP(b, i * 500); if (i < 4) POP(arrows[i], i * 500 + 250); }); mood('happy'); RS.wave = 3; },
+      () => { POP(fin, 0); conf.visible = true; on = true; mood('wow'); RS.hop = 4; RS.wave = 6; lookAt(camera); }] };
+  } });
+
+// ===================== 진행 / UI =====================
+const flat = []; SCENES.forEach((sc, si) => sc.caps.forEach((_, k) => flat.push([si, k])));
+const $ = id => document.getElementById(id);
+$('dots').innerHTML = SCENES.map(() => '<i><b></b></i>').join('');
+let gi = -1, curS = -1, curK = -1, cur = null, auto = true, voiceOn = true, started = false, autoT = 0, speaking = false, minT = 5;
+
+function speak(text) {
+  speaking = false; if (!('speechSynthesis' in window)) return; speechSynthesis.cancel(); if (!voiceOn) return;
+  const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F000}-\u{1FFFF}☀-➿✂️]/gu, '').replace(/[“”"]/g, ''));
+  u.lang = 'ko-KR'; const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ko')); if (v) u.voice = v; u.rate = .95; u.pitch = 1.35;
+  speaking = true; u.onend = u.onerror = () => { speaking = false; }; speechSynthesis.speak(u);
+}
+function go(i) {
+  i = clamp(i, 0, flat.length - 1); const [si, k] = flat[i];
+  if (si !== curS || k < curK) { clearStage(); RS.wave = 0; cur = SCENES[si].make(); curS = si; curK = -1; }
+  for (let j = curK + 1; j <= k; j++) { flushTimers(); cur.run[j](); }
+  curK = k; gi = i; autoT = 0;
+  const cap = SCENES[si].caps[k]; $('cap').textContent = cap; $('chip').textContent = SCENES[si].title; minT = Math.max(5.5, cap.length * .115);
+  [...$('dots').children].forEach((d, n) => d.firstChild.style.width = n < si ? '100%' : n === si ? ((k + 1) / SCENES[si].caps.length * 100) + '%' : '0');
+  speak(cap);
+}
+$('go').onclick = () => { $('start').classList.add('hide'); started = true; go(0); };
+$('bNext').onclick = () => go(gi + 1); $('bPrev').onclick = () => go(gi - 1); $('bRe').onclick = () => go(0);
+$('bAuto').onclick = () => { auto = !auto; $('bAuto').textContent = auto ? '⏸ 자동재생' : '▶ 자동재생'; $('bAuto').classList.toggle('on', auto); };
+$('bVoice').onclick = () => { voiceOn = !voiceOn; $('bVoice').classList.toggle('on', voiceOn); if (!voiceOn && 'speechSynthesis' in window) speechSynthesis.cancel(); else if (started) speak(SCENES[curS].caps[curK]); };
+addEventListener('keydown', e => { if (!started) return; if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(gi + 1); } if (e.key === 'ArrowLeft') go(gi - 1); });
+document.querySelectorAll('button').forEach(b => b.addEventListener('click', () => b.blur()));
+
+// ===================== 루프 =====================
+function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  const hw = Math.tan(FOV * Math.PI / 360) * baseZ() * camera.aspect; robot.position.x = -(hw - 1.5); robot.scale.setScalar(clamp(hw / 9, .6, 1)); }
+addEventListener('resize', resize); resize();
+const clock = new THREE.Clock(); let mx = 0, my = 0;
+addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
+function loop() {
+  requestAnimationFrame(loop); const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  cam.s = lerp(cam.s, cam.ts, 1 - Math.exp(-dt * 2)); cam.y = lerp(cam.y, cam.ty, 1 - Math.exp(-dt * 2));
+  camera.position.set(mx * 1.2, cam.y + 1 - my * .8, baseZ() * cam.s); camera.lookAt(0, cam.y, 0);
+  tick(dt); fxUpdate && fxUpdate(t, dt); updateRobot(t, dt);
+  for (let i = 0; i < bub.N; i++) { bub.pos[i * 3 + 1] += dt * .3; if (bub.pos[i * 3 + 1] > 9) bub.pos[i * 3 + 1] = -3; } bub.p.geometry.attributes.position.needsUpdate = true;
+  if (started && auto && gi < flat.length - 1) { autoT += dt; if (autoT > minT && !speaking) { if (autoT > minT + .9 || !voiceOn) go(gi + 1); } if (voiceOn && speaking && autoT > minT + 14) speaking = false; }
+  renderer.render(scene, camera);
+}
+(document.fonts && document.fonts.load ? document.fonts.load('40px Jua', '가나다') : Promise.resolve()).catch(() => {}).then(() => loop());
+</script>
+</body>
+</html>
