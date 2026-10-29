@@ -15,6 +15,8 @@
   #tools button, #home { background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px;
     padding: 6px 10px; font-size: 15px; cursor: pointer; font-family: inherit; text-decoration: none; }
   #tools button.off { opacity: .45; text-decoration: line-through; }
+  #rot { display: none; position: fixed; top: 52px; left: 0; right: 0; text-align: center; color: #fff; font-size: 14px; z-index: 2; pointer-events: none; text-shadow: 0 1px 4px #000; }
+  @media (orientation: portrait) { #rot { display: block; } }
   #home { position: fixed; bottom: 10px; right: 10px; z-index: 2; font-size: 13px; }
 </style>
 </head>
@@ -25,6 +27,7 @@
   <button id="bVoc">🗣 음성</button>
   <button id="bPau">⏸ 일시정지</button>
 </div>
+<div id="rot">📱 가로로 돌리면 더 크게 즐길 수 있어요 · 탭: 점프 / 아래로 스와이프: 찍기</div>
 <a id="home" href="index.html">← 처음으로</a>
 
 <script>
