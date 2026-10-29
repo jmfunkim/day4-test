@@ -1,36 +1,13 @@
 <!doctype html>
 <html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Space Voyage</title>
-<style>
-  html, body { margin: 0; height: 100%; background: radial-gradient(ellipse at center, #10183a 0%, #000 70%);
-    color: #cfe3ff; font-family: system-ui, sans-serif; }
-  main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; text-align: center; }
-  h1 { margin: 0; font-size: 44px; letter-spacing: 6px; font-weight: 300; }
-  p { margin: 0; opacity: .7; }
-  button { background: #2a5bd7; color: #fff; border: 0; border-radius: 8px; padding: 14px 36px; font-size: 18px; cursor: pointer;
-    box-shadow: 0 0 24px rgba(42,91,215,.6); transition: transform .15s; }
-  button:hover { transform: scale(1.05); }
-</style>
-</head>
-<body>
-<main>
-  <h1>SPACE VOYAGE</h1>
-  <p>우주선이 천체 사이를 지나가는 three.js 애니메이션</p>
-  <div style="display:flex;gap:16px">
-    <button id="start">우주 여행 시작</button>
-    <button id="jeju">제주도 보기</button>
-    <button id="game">🍊 감귤 게임</button>
-    <button id="fighter">🚀 제주 스카이 파이터</button>
-  </div>
-</main>
-<script>
-  document.getElementById('start').onclick = () => { location.href = 'space.html'; };
-  document.getElementById('game').onclick = () => { location.href = 'game.html'; };
-  document.getElementById('fighter').onclick = () => { location.href = 'jejuskyfighter.html'; };
-  document.getElementById('jeju').onclick = () => { location.href = 'jeju.html'; };
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>제주 이야기 | Jeju Story</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍊</text></svg>" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
