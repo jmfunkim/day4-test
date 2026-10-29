@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import AuthLayout from '../components/AuthLayout.jsx'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -22,7 +23,7 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-card">
+    <AuthLayout query="jeju sea" title="🌊 다시 만나서 반가워요" caption="푸른 제주 바다가 기다리고 있어요 🏝️">
       <h1>🔑 로그인</h1>
       <p className="sub">🍊 제주에 오신 걸 환영해요!</p>
       <form onSubmit={onSubmit}>
@@ -36,6 +37,6 @@ export default function Login() {
         <button className="btn" disabled={busy}>{busy ? '⏳ 확인 중...' : '🌴 로그인'}</button>
       </form>
       <p className="sub">계정이 없나요? <Link to="/signup">회원가입</Link></p>
-    </main>
+    </AuthLayout>
   )
 }

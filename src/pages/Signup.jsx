@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import AuthLayout from '../components/AuthLayout.jsx'
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -25,7 +26,7 @@ export default function Signup() {
   }
 
   return (
-    <main className="auth-card">
+    <AuthLayout query="jeju canola flower" title="🌼 제주와 함께 시작해요" caption="가입하고 제주의 풍경을 만나보세요 🍊">
       <h1>📝 회원가입</h1>
       {notice ? (
         <p className="notice">{notice}</p>
@@ -45,6 +46,6 @@ export default function Signup() {
         </form>
       )}
       <p className="sub">이미 계정이 있나요? <Link to="/login">로그인</Link></p>
-    </main>
+    </AuthLayout>
   )
 }
