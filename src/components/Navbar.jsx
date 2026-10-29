@@ -11,6 +11,8 @@ export default function Navbar() {
     <nav className="nav">
       <Link to="/" className="logo">🍊 제주 이야기</Link>
       <div className="nav-right">
+        <Link to="/map">🗺️ 3D지도</Link>
+        <Link to="/stats">📊 관광통계</Link>
         <Link to="/shop">🛍️ 샵</Link>
         {user && <Link to="/cart">🛒 장바구니{count > 0 && <span className="badge">{count}</span>}</Link>}
         {user ? (

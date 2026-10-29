@@ -8,6 +8,8 @@ import Signup from './pages/Signup.jsx'
 import Account from './pages/Account.jsx'
 import Shop from './pages/Shop.jsx'
 import Cart from './pages/Cart.jsx'
+import Stats from './pages/Stats.jsx'
+import JejuMap from './pages/JejuMap.jsx'
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/stats" element={<Stats />} />
+        <Route path="/map" element={<JejuMap />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
